@@ -67,6 +67,7 @@ def choose():
     gcal_service = get_gcal_service(credentials)
     app.logger.debug("Returned from get_gcal_service")
     flask.g.calendars = list_calendars(gcal_service)
+    list_events(gcal_service, flask.g.calendars)
     return render_template('index.html')
 
 ####
@@ -324,11 +325,14 @@ def list_events(service, calendars):
   """
   app.logger.debug("Entering list_events")
   for calendar in calendars:
+    app.logger.debug("Processing calendar {}".format(calendar))
     calendar_result = []
     page_token = None
     while True:
+      app.logger.debug("In inner 'while' loop")
       events = service.events().list(
           calendarId=calendar["id"], singleEvents=True, orderBy='startTime', pageToken=page_token, timeMin=flask.session['begin_date'], timeMax=flask.session['end_date']).execute()
+      app.logger.debug("Got event list: {}".format(events))
       for event in events["items"]:                                               # iterate through events
         if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
           break
@@ -351,7 +355,7 @@ def list_events(service, calendars):
              "dateString": dateString
              })
       calendar["events"] = calendar_result                                          # add event info to appropriate key
-      print(calendar_result)
+      app.logger.debug("Adding an event: {}".format(calendar_result))
       # for i in range(len(calendar["events"])):
       # print(calendar["events"][i]["summary"])
       page_token = events.get('nextPageToken')
