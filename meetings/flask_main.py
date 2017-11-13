@@ -318,6 +318,57 @@ def list_calendars(service):
     return sorted(result, key=cal_sort_key)
 
 
+def list_events(service, calendars):
+  """
+  Gets a list of events, add to respective calendar, and format for printing.
+  """
+  app.logger.debug("Entering list_events")
+  for calendar in calendars:
+    calendar_result = []
+    page_token = None
+    while True:
+      events = service.events().list(
+          calendarId=calendar["id"], singleEvents=True, orderBy='startTime', pageToken=page_token, timeMin=flask.session['begin_date'], timeMax=flask.session['end_date']).execute()
+      for event in events["items"]:                                               # iterate through events
+        if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
+          break
+        else:
+          id = event["id"]                                                          # event id and summary added no matter what
+          summary = event["summary"]
+                                                                                    # check type of event (dict varies based on this)
+          if "date" in event["start"]:                                              # all day event
+            dateString = "All day: " + event["start"]["date"]
+          elif "dateTime" in event["start"]:                                        # event with start time/end time
+            start = event["start"]["dateTime"].replace("T", " at ")[:-9]            # format start/end time string for appropriate output
+            end = event["end"]["dateTime"].replace("T", " at ")[:-9]
+            dateString = start + " to " + end
+          else:
+            raise Exception("unrecognized dataTime format")
+
+        calendar_result.append(                                                     # add dictionary elements to event
+            {"id": id,
+             "summary": summary,
+             "dateString": dateString
+             })
+      calendar["events"] = calendar_result                                          # add event info to appropriate key
+      print(calendar_result)
+      # for i in range(len(calendar["events"])):
+      # print(calendar["events"][i]["summary"])
+      page_token = events.get('nextPageToken')
+      if not page_token:
+        break
+
+
+
+
+
+
+
+
+
+
+
+
 def cal_sort_key( cal ):
     """
     Sort key for the list of calendars:  primary calendar first,
