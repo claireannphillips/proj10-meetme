@@ -189,17 +189,42 @@ def oauth2callback():
 @app.route('/setrange', methods=['POST'])
 def setrange():
     """
-    User chose a date range with the bootstrap daterange
+     User chose a date range with the bootstrap daterange
     widget.
     """
+    
+##    flask.session.get("starttime")
+    #create arrow object then compare instead of date do datetime
+    
+    #start_clock = request.form.get("start_clock")
+    #app.logger.debug("start_clock from form: '{}'".format(start_clock))
+    #start_clock = arrow.get(start_clock)
+    #start_clock = start_clock.format("HH")
+    #begin_time = arrow.get(flask.session["begin_time"]).format("HH")
+    #flask.session["begin_time"] = interpret_time(start_clock)
+    #app.logger.debug("STARTCLOCK: {}".format(start_clock))
+    
+    #end_clock = request.form.get("end_clock")
+    #end_clock = arrow.get(flask.session["begin_time"])
+    #end_clock = end_clock.format("HH")
+    #begin_time = arrow.get(flask.session["begin_time"]).format("HH")
+    #flask.session["begin_time"] = interpret_time(end_clock)
+    
     app.logger.debug("Entering setrange")  
-    flask.flash("Setrange gave us '{}'".format(
-      request.form.get('daterange')))
+    flask.flash("Setrange gave us '{}' '{}'".format(
+      request.form.get('daterange'), request.form.get('timerange')))
     daterange = request.form.get('daterange')
+    timerange = request.form.get('timerange')
     flask.session['daterange'] = daterange
+    flask.session['timerange'] = timerange
     daterange_parts = daterange.split()
+    timerange_parts = timerange.split()
+    
+    
     flask.session['begin_date'] = interpret_date(daterange_parts[0])
     flask.session['end_date'] = interpret_date(daterange_parts[2])
+    flask.session['begin_time'] = interpret_time(timerange_parts[0])
+    flask.session['end_time'] = interpret_time(timerange_parts[2])
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
       flask.session['begin_date'], flask.session['end_date']))
@@ -318,6 +343,22 @@ def list_calendars(service):
             })
     return sorted(result, key=cal_sort_key)
 
+@app.route('/list_events', methods=['GET','POST'])
+def check():
+    #li = 0
+    interest = flask.request.form.getlist("interest")
+    credentials = valid_credentials()
+    gcal_service = get_gcal_service(credentials)
+    #for cal in interest:
+        #for object in flask.g.calendars:
+            #if object["summary"] == cal:
+                #interst[li]= object
+        #li += 1
+    
+                
+    flask.g.calendars = list_calendars(gcal_service)
+    list_events(gcal_service, flask.g.calendars)
+    return render_template('index.html')
 
 def list_events(service, calendars):
   """
@@ -335,7 +376,7 @@ def list_events(service, calendars):
       app.logger.debug("Got event list: {}".format(events))
       for event in events["items"]:                                               # iterate through events
         if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
-          break
+          continue
         else:
           id = event["id"]                                                          # event id and summary added no matter what
           summary = event["summary"]
@@ -363,10 +404,12 @@ def list_events(service, calendars):
         break
 
 
-
-
-
-
+def check(start, end):
+    '''checks the cases of if  an event should be added to busy times.
+    Don't add if event is after the hours, before the starting hour, or a
+    multiday event'''
+    if (arrow.get(flask.session['start_clock']) > arrow.get(flask.session['begin_date'])):
+        return None
 
 
 

@@ -54,8 +54,9 @@
   {% endif %}
 {% endwith %}
 
-<h4>Date range</h4>
+<h4>Date and Time range</h4>
   <form action="/setrange" method="post">
+  <input type="text" name="timerange" size="12" value="09:00 - 17:00">
   <input type="text" name="daterange" size="12"
     {% if session.daterange is defined %}
          value="{{session.daterange}}"
@@ -67,9 +68,10 @@
   $(function() {
   $('input[name="daterange"]').daterangepicker(
     {    ranges: {
+	   
            'Today': [moment(), moment().add(1, 'days')],
            'Tomorrow':[moment().add(1, 'days'),
-                       moment().add(2, 'days')],
+                       moment().add(1, 'days')],
            'This week':[moment(), moment().endOf('week').add(1, 'days')],
            'Next week':[moment().add(7, 'days').startOf('week'),
                         moment().add(7, 'days').endOf('week').add(1, 'days')],
@@ -79,22 +81,6 @@
        );
     });
   </script>
-
-
-
-<form>
-  Start time:
-  <input type="time" name="usr_time">
-</form>
-
-<form>
-  End time:
-  <input type="time" name="usr_time">
-</form>
-
-
-
-
 
 
 <input type="submit" value="Get Busy Times" />
@@ -108,9 +94,30 @@
     -->
 <br>
 {% if g.calendars is defined  %}
+
+<form method="POST" action="/list_events" id="list_events" name="list_events">
+ <fieldset>
+ <legend> Choose Calendars </legend>
   <div class="row">
+    {% for cal in g.calendars %}
+    <div class="col-md-4">
+      <input type="checkbox" id="{{ cal.summary }}" name="interest" value="{{ cal.summary }}">
+      <label for="{{ cal.summary }}">{{ cal.summary }} </label>
+     
+    </div>
+    {% endfor %}
+  </div>
+<input type="submit" value="submit"/>
+<fieldset>
+</form>
+
+<form>
+
+   <div class="row">
+	
     {% for cal in g.calendars if cal.selected %}
-    <div class="col-md-12">
+    <div class="col-md-4">
+      
       <h5>For calendar: {{ cal.summary }}</h5>
       {% if cal.events|length == 0 %}
         <p><i>No busy times in this calendar</i></p>
@@ -125,6 +132,6 @@
     {% endfor %}
   </div>
 {% endif %}
-
+</form>
   </div>
   </body> </html>
