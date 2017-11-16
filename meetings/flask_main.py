@@ -67,7 +67,25 @@ def choose():
     gcal_service = get_gcal_service(credentials)
     app.logger.debug("Returned from get_gcal_service")
     flask.g.calendars = list_calendars(gcal_service)
-    list_events(gcal_service, flask.g.calendars)
+    #list_events(gcal_service, flask.g.calendars)
+    return render_template('index.html')
+
+@app.route("/choose2")
+def choose2():
+    ## We'll need authorization to list calendars 
+    ## I wanted to put what follows into a function, but had
+    ## to pull it back here because the redirect has to be a
+    ## 'return' 
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+
+    gcal_service = get_gcal_service(credentials)
+    app.logger.debug("Returned from get_gcal_service")
+    flask.g.calendars = list_calendars(gcal_service)
+    flask.g.events = list_events(gcal_service, flask.g.calendars)
     return render_template('index.html')
 
 ####
@@ -196,8 +214,21 @@ def setrange():
 ##    flask.session.get("starttime")
     #create arrow object then compare instead of date do datetime
     
-    #start_clock = request.form.get("start_clock")
-    #app.logger.debug("start_clock from form: '{}'".format(start_clock))
+    app.logger.debug("Entering setrange")  
+    flask.flash("Setrange gave us '{}' and time from '{}' to '{}'".format(
+    request.form.get('daterange'), request.form.get('start_clock'), request.form.get('end_clock')))
+    daterange = request.form.get('daterange')
+    
+    start_clock = request.form.get('start_clock')
+    end_clock = request.form.get('end_clock')
+    flask.session['daterange'] = daterange
+    
+    flask.session['start_clock'] = start_clock
+    flask.session['end_clock'] = end_clock
+    daterange_parts = daterange.split()
+    
+    
+    app.logger.debug("start_clock from form: '{}'".format(start_clock))
     #start_clock = arrow.get(start_clock)
     #start_clock = start_clock.format("HH")
     #begin_time = arrow.get(flask.session["begin_time"]).format("HH")
@@ -210,21 +241,14 @@ def setrange():
     #begin_time = arrow.get(flask.session["begin_time"]).format("HH")
     #flask.session["begin_time"] = interpret_time(end_clock)
     
-    app.logger.debug("Entering setrange")  
-    flask.flash("Setrange gave us '{}' '{}'".format(
-      request.form.get('daterange'), request.form.get('timerange')))
-    daterange = request.form.get('daterange')
-    timerange = request.form.get('timerange')
-    flask.session['daterange'] = daterange
-    flask.session['timerange'] = timerange
-    daterange_parts = daterange.split()
-    timerange_parts = timerange.split()
-    
+
     
     flask.session['begin_date'] = interpret_date(daterange_parts[0])
+    app.logger.debug('BEGIN DATE:  {}'.format(flask.session['begin_date']))
     flask.session['end_date'] = interpret_date(daterange_parts[2])
-    flask.session['begin_time'] = interpret_time(timerange_parts[0])
-    flask.session['end_time'] = interpret_time(timerange_parts[2])
+    
+    flask.session['start_clock'] = interpret_time(start_clock)
+    flask.session['end_clock'] = interpret_time(end_clock)
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
       flask.session['begin_date'], flask.session['end_date']))
@@ -265,7 +289,7 @@ def interpret_time( text ):
     time_formats = ["ha", "h:mma",  "h:mm a", "H:mm"]
     try: 
         as_arrow = arrow.get(text, time_formats).replace(tzinfo=tz.tzlocal())
-        as_arrow = as_arrow.replace(year=2016) #HACK see below
+        as_arrow = as_arrow.replace(year=2017) #HACK see below
         app.logger.debug("Succeeded interpreting time")
     except:
         app.logger.debug("Failed to interpret time")
@@ -344,11 +368,15 @@ def list_calendars(service):
     return sorted(result, key=cal_sort_key)
 
 @app.route('/list_events', methods=['GET','POST'])
-def check():
+def checking():
     #li = 0
     interest = flask.request.form.getlist("interest")
-    credentials = valid_credentials()
-    gcal_service = get_gcal_service(credentials)
+    flask.session["cal_ids"] = interest
+    app.logger.debug('CHECKED BOXES: {}'.format(interest)) #shows list of calendars clicked
+    #credentials = valid_credentials()
+    #gcal_service = get_gcal_service(credentials)
+    #for mark in interest:
+        #list_events(gcal_service, interest)
     #for cal in interest:
         #for object in flask.g.calendars:
             #if object["summary"] == cal:
@@ -356,61 +384,109 @@ def check():
         #li += 1
     
                 
-    flask.g.calendars = list_calendars(gcal_service)
-    list_events(gcal_service, flask.g.calendars)
-    return render_template('index.html')
+    #flask.g.calendars = list_calendars(gcal_service)
+    #list_events(gcal_service, flask.g.calendars)
+    return flask.redirect(flask.url_for("choose2"))
+
+
+    
 
 def list_events(service, calendars):
   """
   Gets a list of events, add to respective calendar, and format for printing.
   """
   app.logger.debug("Entering list_events")
-  for calendar in calendars:
-    app.logger.debug("Processing calendar {}".format(calendar))
-    calendar_result = []
-    page_token = None
-    while True:
-      app.logger.debug("In inner 'while' loop")
-      events = service.events().list(
-          calendarId=calendar["id"], singleEvents=True, orderBy='startTime', pageToken=page_token, timeMin=flask.session['begin_date'], timeMax=flask.session['end_date']).execute()
+  
+  
+  start_clock= arrow.get(flask.session['start_clock'])
+  end_clock= arrow.get(flask.session['end_clock'])
+  
+  app.logger.debug("TIMES: {} end {}".format(start_clock, end_clock))
+  busytimes = []
+  result = []
+  selected = flask.session["cal_ids"]
+  for id in selected:
+      calendar_result = []
+    
+      begintime = arrow.get(flask.session["begin_time"]).time().isoformat()
+      endtime = arrow.get(flask.session["end_time"]).time().isoformat()
+      begin_date = flask.session["begin_date"]
+      end_date = flask.session["end_date"]
+      startdate = begin_date[:11] + begintime + begin_date[19:]
+      enddate = end_date[:11] + endtime + end_date[19:]
+      app.logger.debug("END DATE AND TIME: {}  {}".format(startdate, enddate))
+      
+      events = service.events().list(calendarId=id, singleEvents=True, orderBy='startTime', timeMin=startdate, timeMax=enddate).execute()["items"]
       app.logger.debug("Got event list: {}".format(events))
-      for event in events["items"]:                                               # iterate through events
-        if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
-          continue
-        else:
-          id = event["id"]                                                          # event id and summary added no matter what
-          summary = event["summary"]
-                                                                                    # check type of event (dict varies based on this)
-          if "date" in event["start"]:                                              # all day event
-            dateString = "All day: " + event["start"]["date"]
-          elif "dateTime" in event["start"]:                                        # event with start time/end time
-            start = event["start"]["dateTime"].replace("T", " at ")[:-9]            # format start/end time string for appropriate output
-            end = event["end"]["dateTime"].replace("T", " at ")[:-9]
-            dateString = start + " to " + end
-          else:
-            raise Exception("unrecognized dataTime format")
+      listevents = check(events, startdate, enddate)
+      busytimes.append({ "id": id, "events": listevents})
+  return busytimes                                  
+      
+    #app.logger.debug("Processing calendar {}".format(calendar))
+    #while True:
+      #app.logger.debug("In inner 'while' loop")
+##      events = service.events().list(
+##          calendarId=calendar["id"], singleEvents=True, orderBy='startTime', pageToken=page_token, timeMin=flask.session['begin_date'], timeMax=flask.session['end_date']).execute()
+    
+##        if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
+##          continue
+##        else:
+##          id = event["id"]                                                          # event id and summary added no matter what
+##          summary = event["summary"]
+##                                                                                    # check type of event (dict varies based on this)
+##          if "date" in event["start"]:                                              # all day event
+##            dateString = "All day: " + event["start"]["date"]
+##          elif "dateTime" in event["start"]:                                        # event with start time/end time
+##            start = event["start"]["dateTime"].replace("T", " at ")[:-9]            # format start/end time string for appropriate output
+##            end = event["end"]["dateTime"].replace("T", " at ")[:-9]
+##            dateString = start + " to " + end
+##          else:
+##            raise Exception("unrecognized dataTime format")
 
-        calendar_result.append(                                                     # add dictionary elements to event
-            {"id": id,
-             "summary": summary,
-             "dateString": dateString
-             })
-      calendar["events"] = calendar_result                                          # add event info to appropriate key
-      app.logger.debug("Adding an event: {}".format(calendar_result))
-      # for i in range(len(calendar["events"])):
-      # print(calendar["events"][i]["summary"])
-      page_token = events.get('nextPageToken')
-      if not page_token:
-        break
-
-
-def check(start, end):
+##        calendar_result.append(                                                     # add dictionary elements to event
+##            {"id": id,
+##             "summary": summary,
+##             "dateString": dateString
+##             })
+##      calendar["events"] = calendar_result                                          # add event info to appropriate key
+##      #app.logger.debug("Adding an event: {}".format(calendar_result))
+##      # for i in range(len(calendar["events"])):
+##      # print(calendar["events"][i]["summary"])
+##      page_token = events.get('nextPageToken')
+##      if not page_token:
+##        break
+    
+def check(events, start, end):
     '''checks the cases of if  an event should be added to busy times.
     Don't add if event is after the hours, before the starting hour, or a
     multiday event'''
-    if (arrow.get(flask.session['start_clock']) > arrow.get(flask.session['begin_date'])):
-        return None
-
+    busylist = []
+    if events == []:
+        return "no events"
+    else:
+        for event in events:
+            if "transparency" not in event:
+                if "date" in event["start"]:
+                    summary = event["summary"]
+                    eventBegin = event["start"]["date"] + "00:00:00" + start[19:]
+                    eventEnd = event["end"]["date"] + "23:59:00" + end[19:]
+                else:
+                    summary = event["summary"]
+                    eventBegin = event["start"]['dateTime']
+                    eventEnd = event["end"]['dateTime']
+                    
+                range1 = (eventBegin > start) and (eventEnd < end)
+                range2 = (eventBegin < start) and (eventEnd > start)
+                range3 = (eventBegin < end) and (eventEnd > end)
+                
+                if (range1 or range2 or range3):
+                    event = {"sum": summary,
+                             "start": eventBegin,
+                             "end": eventEnd,
+                             "selected": True}
+                    busylist.append(event)
+        
+    return busylist
 
 
 

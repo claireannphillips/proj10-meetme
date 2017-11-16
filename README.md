@@ -1,6 +1,6 @@
 # proj7-Gcal
 Snarf appointment data from a selection of a user's Google calendars 
-#Author: Claire Phillips with help from Shohei
+#Author: Claire Phillips with help from Miguel and John
 
 
 ##What it does

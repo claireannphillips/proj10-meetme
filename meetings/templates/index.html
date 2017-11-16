@@ -1,17 +1,15 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<!DOCTYPE HTML>
 <html lang="en"> <head>
 <title>Appointments</title>
+
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <link rel="stylesheet" type="text/css"
-     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
-/>
-
-
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"/>
+     
 <link rel="stylesheet" type="text/css"
-    href="/static/css/busy.css"
-/>
-
+    href="/static/css/busy.css"/>
+    
 <!-- jquery from a content distribution network; probably cached -->
 <script type="text/javascript"
      src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
@@ -28,11 +26,9 @@
 
 <script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
 <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
-
-
 </head>
-
 <body>
+
 <div class="container">
 
 <h2>Google Calendar Busy Times</h2>
@@ -55,14 +51,25 @@
 {% endwith %}
 
 <h4>Date and Time range</h4>
-  <form action="/setrange" method="post">
-  <input type="text" name="timerange" size="12" value="09:00 - 17:00">
+
+
+<form action="/setrange" method="post">
+  Start time:
+  <input type="time" name="start_clock" value="00:00:00"> 
+
+</select>
+
+  End time:
+  <input type="time" name="end_clock" value="00:00:00">
+
+
+
   <input type="text" name="daterange" size="12"
     {% if session.daterange is defined %}
          value="{{session.daterange}}"
     {% endif %}
      class="pull-down"
-     style="background: #fff; cursor: pointer; padding: 5px 10px;
+     style="background: #fff; cursor: pointer; padding: 5px 10px;"
      border: 1px solid #ccc; width: 12em" >
   <script type="text/javascript">
   $(function() {
@@ -93,45 +100,37 @@
     prefer down then across).
     -->
 <br>
+
 {% if g.calendars is defined  %}
 
 <form method="POST" action="/list_events" id="list_events" name="list_events">
  <fieldset>
  <legend> Choose Calendars </legend>
-  <div class="row">
     {% for cal in g.calendars %}
     <div class="col-md-4">
-      <input type="checkbox" id="{{ cal.summary }}" name="interest" value="{{ cal.summary }}">
-      <label for="{{ cal.summary }}">{{ cal.summary }} </label>
-     
+        {% if loop.index is divisibleby 1 %}
+        <div class="row">
+      <input type="checkbox" id="{{ cal.summary }}" name="interest" value="{{ cal.id }}">
+      <label for="{{ cal.summary }}">{{ cal.summary }} </label>   
     </div>
+        {% if g.events is defined %}
+		{% for event in g.events %}
+			{% if event.id == cal.id %}
+				{% for event in event.events %}
+                                    {% if loop.index is divisibleby 1 %}
+                                    <div class="row">
+					EVENT |: {{ event.sum }} BEGINS |:{{event.start | fmtdate}} {{event.start | fmttime}} ENDS |:{{event.end | fmtdate}} {{event.end | fmttime}}
+				    </div>
+				    {% endif %}
+				{% endfor %}
+			{% endif %}
+		{% endfor %}
+	{% endif %}
+	</div>
+        {% endif %}
     {% endfor %}
-  </div>
 <input type="submit" value="submit"/>
 <fieldset>
-</form>
-
-<form>
-
-   <div class="row">
-	
-    {% for cal in g.calendars if cal.selected %}
-    <div class="col-md-4">
-      
-      <h5>For calendar: {{ cal.summary }}</h5>
-      {% if cal.events|length == 0 %}
-        <p><i>No busy times in this calendar</i></p>
-      {% else %}
-        {% for i in range(cal.events|length) %}
-          <p><b>{{ cal.events[i]["dateString"] }}</b>
-            <br>
-          Event name: <b>{{ cal.events[i]["summary"] }}</b></p>
-        {% endfor %}
-      {% endif %}
-    </div>
-    {% endfor %}
-  </div>
 {% endif %}
 </form>
-  </div>
-  </body> </html>
+
