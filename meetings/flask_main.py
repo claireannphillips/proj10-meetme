@@ -211,9 +211,6 @@ def setrange():
     widget.
     """
     
-##    flask.session.get("starttime")
-    #create arrow object then compare instead of date do datetime
-    
     app.logger.debug("Entering setrange")  
     flask.flash("Setrange gave us '{}' and time from '{}' to '{}'".format(
     request.form.get('daterange'), request.form.get('start_clock'), request.form.get('end_clock')))
@@ -369,23 +366,9 @@ def list_calendars(service):
 
 @app.route('/list_events', methods=['GET','POST'])
 def checking():
-    #li = 0
     interest = flask.request.form.getlist("interest")
     flask.session["cal_ids"] = interest
     app.logger.debug('CHECKED BOXES: {}'.format(interest)) #shows list of calendars clicked
-    #credentials = valid_credentials()
-    #gcal_service = get_gcal_service(credentials)
-    #for mark in interest:
-        #list_events(gcal_service, interest)
-    #for cal in interest:
-        #for object in flask.g.calendars:
-            #if object["summary"] == cal:
-                #interst[li]= object
-        #li += 1
-    
-                
-    #flask.g.calendars = list_calendars(gcal_service)
-    #list_events(gcal_service, flask.g.calendars)
     return flask.redirect(flask.url_for("choose2"))
 
 
