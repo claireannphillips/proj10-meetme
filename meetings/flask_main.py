@@ -244,8 +244,7 @@ def setrange():
     app.logger.debug('BEGIN DATE:  {}'.format(flask.session['begin_date']))
     flask.session['end_date'] = interpret_date(daterange_parts[2])
     
-    flask.session['start_clock'] = interpret_time(start_clock)
-    flask.session['end_clock'] = interpret_time(end_clock)
+   
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
       flask.session['begin_date'], flask.session['end_date']))
@@ -380,29 +379,37 @@ def list_events(service, calendars):
   """
   app.logger.debug("Entering list_events")
   
-  
-  start_clock= arrow.get(flask.session['start_clock'])
-  end_clock= arrow.get(flask.session['end_clock'])
-  
-  app.logger.debug("TIMES: {} end {}".format(start_clock, end_clock))
+
   busytimes = []
   result = []
   selected = flask.session["cal_ids"]
-  for id in selected:
-      calendar_result = []
-    
-      begintime = arrow.get(flask.session["begin_time"]).time().isoformat()
-      endtime = arrow.get(flask.session["end_time"]).time().isoformat()
-      begin_date = flask.session["begin_date"]
-      end_date = flask.session["end_date"]
-      startdate = begin_date[:11] + begintime + begin_date[19:]
-      enddate = end_date[:11] + endtime + end_date[19:]
-      app.logger.debug("END DATE AND TIME: {}  {}".format(startdate, enddate))
+  
+  begin_date = flask.session["begin_date"]
+  end_date = flask.session["end_date"]
+  app.logger.debug(begin_date)
+  app.logger.debug(end_date)
       
-      events = service.events().list(calendarId=id, singleEvents=True, orderBy='startTime', timeMin=startdate, timeMax=enddate).execute()["items"]
-      app.logger.debug("Got event list: {}".format(events))
+  begintime = flask.session['start_clock']
+  app.logger.debug(begintime)
+  endtime = flask.session['end_clock']
+  app.logger.debug(endtime)
+  
+  startdate = begin_date[:11] + begintime + begin_date[19:]
+  app.logger.debug(startdate)
+  enddate = end_date[:11] + endtime + end_date[19:]
+  app.logger.debug(enddate)
+  
+  calendar_result = []
+  for id in selected:
+      
+      events = service.events().list(calendarId=id, singleEvents=True ).execute()["items"]
+      if events == []:
+          flask.flash("No events.")
+    
       listevents = check(events, startdate, enddate)
+    
       busytimes.append({ "id": id, "events": listevents})
+    
   return busytimes                                  
       
     #app.logger.debug("Processing calendar {}".format(calendar))
@@ -443,6 +450,18 @@ def check(events, start, end):
     '''checks the cases of if  an event should be added to busy times.
     Don't add if event is after the hours, before the starting hour, or a
     multiday event'''
+    
+    startdate = arrow.get(start).date()
+    app.logger.debug(startdate)
+    enddate = arrow.get(end).date()
+    app.logger.debug(enddate)
+    starttime = arrow.get(start).time()
+    app.logger.debug(starttime)
+    endtime = arrow.get(end).time()
+    app.logger.debug(endtime)
+    
+    
+    
     busylist = []
     if events == []:
         return "no events"
@@ -453,14 +472,27 @@ def check(events, start, end):
                     summary = event["summary"]
                     eventBegin = event["start"]["date"] + "00:00:00" + start[19:]
                     eventEnd = event["end"]["date"] + "23:59:00" + end[19:]
+                    event_begin_date = arrow.get(eventBegin).date()
+                    event_begin_time = arrow.get(eventBegin).time()
+                    event_end_date = arrow.get(eventEnd).date()
+                    event_end_time = arrow.get(eventEnd).time()
                 else:
                     summary = event["summary"]
                     eventBegin = event["start"]['dateTime']
+                    event_begin_date = arrow.get(eventBegin).date()
+                    event_begin_time = arrow.get(eventBegin).time()
                     eventEnd = event["end"]['dateTime']
+                    event_end_date = arrow.get(eventEnd).date()
+                    event_end_time = arrow.get(eventEnd).time()
                     
-                range1 = (eventBegin > start) and (eventEnd < end)
-                range2 = (eventBegin < start) and (eventEnd > start)
-                range3 = (eventBegin < end) and (eventEnd > end)
+                    app.logger.debug(event_end_date)
+                    app.logger.debug(event_begin_date)
+                    app.logger.debug(event_begin_time)
+                    app.logger.debug(event_end_time)
+                    
+                range1 = (event_begin_date >= startdate) and (event_end_date <= enddate) and (event_begin_time >= starttime) and (event_end_time <= endtime) 
+                range2 = (event_begin_date <= startdate) and (event_end_date >= startdate) and (event_begin_time <= starttime) and (event_end_time >= endtime) 
+                range3 = (event_begin_date <= enddate) and (event_end_date >= enddate) and (event_begin_time <= starttime) and (event_end_time >= endtime) 
                 
                 if (range1 or range2 or range3):
                     event = {"sum": summary,
@@ -468,6 +500,7 @@ def check(events, start, end):
                              "end": eventEnd,
                              "selected": True}
                     busylist.append(event)
+               
         
     return busylist
 
@@ -522,4 +555,3 @@ if __name__ == "__main__":
   # exist whether this is 'main' or not
   # (e.g., if we are running under green unicorn)
   app.run(port=CONFIG.PORT,host="0.0.0.0")
-    

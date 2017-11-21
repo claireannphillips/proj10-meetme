@@ -119,7 +119,7 @@
 				{% for event in event.events %}
                                     {% if loop.index is divisibleby 1 %}
                                     <div class="row">
-					EVENT : {{ event.sum }} BEGINS :{{event.start | fmtdate}}| {{event.start | fmttime}} ENDS :{{event.end | fmtdate}} {{event.end | fmttime}}
+					EVENT : {{ event.sum }} BEGINS :{{event.start | fmtdate}} {{event.start | fmttime}} ENDS :{{event.end | fmtdate}} {{event.end | fmttime}}
 				    </div>
 				    {% endif %}
 				{% endfor %}
