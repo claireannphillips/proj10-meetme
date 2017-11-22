@@ -128,6 +128,17 @@
 	{% endif %}
 	</div>
         {% endif %}
+            <!-- New Stuff -->
+            {% if g.free is defined %}
+                {% for time in g.free %}
+                    {% if time.id == cal.id %}
+                        <h5> FREEEEEE TIMESSSSSS </h5>
+                        {% for event in  time.free_times %}
+                            {{ event.start }}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
     {% endfor %}
 <input type="submit" value="submit"/>
 <fieldset>

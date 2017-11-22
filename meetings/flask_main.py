@@ -13,6 +13,9 @@ import arrow # Replacement for datetime, based on moment.js
 from dateutil import tz  # For interpreting local times
 
 
+from freeTimes import free_times, availability
+
+
 # OAuth2  - Google library implementation for convenience
 from oauth2client import client
 import httplib2   # used in oauth2 flow
@@ -86,6 +89,9 @@ def choose2():
     app.logger.debug("Returned from get_gcal_service")
     flask.g.calendars = list_calendars(gcal_service)
     flask.g.events = list_events(gcal_service, flask.g.calendars)
+    
+    flask.g.free = flask.session['free']
+    
     return render_template('index.html')
 
 ####
@@ -386,81 +392,69 @@ def list_events(service, calendars):
   
   begin_date = flask.session["begin_date"]
   end_date = flask.session["end_date"]
-  app.logger.debug(begin_date)
-  app.logger.debug(end_date)
+  #app.logger.debug(begin_date)
+  #app.logger.debug(end_date)
       
   begintime = flask.session['start_clock']
-  app.logger.debug(begintime)
+  #app.logger.debug(begintime)
   endtime = flask.session['end_clock']
-  app.logger.debug(endtime)
+  #app.logger.debug(endtime)
   
   startdate = begin_date[:11] + begintime + begin_date[19:]
-  app.logger.debug(startdate)
+  #app.logger.debug(startdate)
   enddate = end_date[:11] + endtime + end_date[19:]
-  app.logger.debug(enddate)
+  #app.logger.debug(enddate)
   
   calendar_result = []
   for id in selected:
       
-      events = service.events().list(calendarId=id, singleEvents=True ).execute()["items"]
+      events = service.events().list(calendarId=id, singleEvents=True, orderBy='startTime' ).execute()["items"]
       if events == []:
           flask.flash("No events.")
-    
+      
+      # Get busy times
       listevents = check(events, startdate, enddate)
+      app.logger.debug("STARTDATE:{}".format(startdate))
+      
+      # Get free blocks
+      freeblocks = availability(startdate, enddate)
+      
+      # Get free times
+      freetimeslist = []
+      finalfreelist = []
+      
+      if listevents == []:
+        freetimes = freeblocks
+      
+      for block in freeblocks:
+          busyevents = check(events, block['start'], block['end'])
+          freetimes = free_times(block, busyevents)
+          app.logger.debug("Freetimes: {}".format(freetimes))
+          if freetimes != []:
+              for time in freetimes:
+                  freetimeslist.append(time)
     
+      finalfreelist.append({ "id": id, "free_times":freetimeslist})
       busytimes.append({ "id": id, "events": listevents})
+    
+  flask.session['free'] = finalfreelist
     
   return busytimes                                  
       
-    #app.logger.debug("Processing calendar {}".format(calendar))
-    #while True:
-      #app.logger.debug("In inner 'while' loop")
-##      events = service.events().list(
-##          calendarId=calendar["id"], singleEvents=True, orderBy='startTime', pageToken=page_token, timeMin=flask.session['begin_date'], timeMax=flask.session['end_date']).execute()
-    
-##        if ("transparency" in event and event["transparency"] == "transparent"):    # don't list transparent events
-##          continue
-##        else:
-##          id = event["id"]                                                          # event id and summary added no matter what
-##          summary = event["summary"]
-##                                                                                    # check type of event (dict varies based on this)
-##          if "date" in event["start"]:                                              # all day event
-##            dateString = "All day: " + event["start"]["date"]
-##          elif "dateTime" in event["start"]:                                        # event with start time/end time
-##            start = event["start"]["dateTime"].replace("T", " at ")[:-9]            # format start/end time string for appropriate output
-##            end = event["end"]["dateTime"].replace("T", " at ")[:-9]
-##            dateString = start + " to " + end
-##          else:
-##            raise Exception("unrecognized dataTime format")
 
-##        calendar_result.append(                                                     # add dictionary elements to event
-##            {"id": id,
-##             "summary": summary,
-##             "dateString": dateString
-##             })
-##      calendar["events"] = calendar_result                                          # add event info to appropriate key
-##      #app.logger.debug("Adding an event: {}".format(calendar_result))
-##      # for i in range(len(calendar["events"])):
-##      # print(calendar["events"][i]["summary"])
-##      page_token = events.get('nextPageToken')
-##      if not page_token:
-##        break
-    
 def check(events, start, end):
     '''checks the cases of if  an event should be added to busy times.
     Don't add if event is after the hours, before the starting hour, or a
     multiday event'''
     
     startdate = arrow.get(start).date()
-    app.logger.debug(startdate)
+    #app.logger.debug(startdate)
     enddate = arrow.get(end).date()
-    app.logger.debug(enddate)
+    #app.logger.debug(enddate)
     starttime = arrow.get(start).time()
-    app.logger.debug(starttime)
+    #app.logger.debug(starttime)
     endtime = arrow.get(end).time()
-    app.logger.debug(endtime)
-    
-    
+    #app.logger.debug(endtime)
     
     busylist = []
     if events == []:
@@ -485,14 +479,14 @@ def check(events, start, end):
                     event_end_date = arrow.get(eventEnd).date()
                     event_end_time = arrow.get(eventEnd).time()
                     
-                    app.logger.debug(event_end_date)
-                    app.logger.debug(event_begin_date)
-                    app.logger.debug(event_begin_time)
-                    app.logger.debug(event_end_time)
+                    #app.logger.debug(event_end_date)
+                    #app.logger.debug(event_begin_date)
+                    #app.logger.debug(event_begin_time)
+                    #app.logger.debug(event_end_time)
                     
                 range1 = (event_begin_date >= startdate) and (event_end_date <= enddate) and (event_begin_time >= starttime) and (event_end_time <= endtime) 
-                range2 = (event_begin_date <= startdate) and (event_end_date >= startdate) and (event_begin_time <= starttime) and (event_end_time >= endtime) 
-                range3 = (event_begin_date <= enddate) and (event_end_date >= enddate) and (event_begin_time <= starttime) and (event_end_time >= endtime) 
+                range2 = (event_begin_date >= startdate) and (event_end_date <= enddate) and (event_begin_time < starttime) and ((event_end_time >= endtime) or (event_end_time <= endtime)) and (event_end_time > starttime)
+                range3 = (event_begin_date >= startdate) and (event_end_date <= enddate) and (event_begin_time < endtime) and ((event_end_time >= endtime) or (event_end_time <= endtime)) and (event_end_time > endtime)
                 
                 if (range1 or range2 or range3):
                     event = {"sum": summary,
