@@ -116,6 +116,7 @@
         {% if g.events is defined %}
 		{% for event in g.events %}
 			{% if event.id == cal.id %}
+			        <h5> BUSY TIMES </h5>
 				{% for event in event.events %}
                                     {% if loop.index is divisibleby 1 %}
                                     <div class="row">
@@ -132,9 +133,11 @@
             {% if g.free is defined %}
                 {% for time in g.free %}
                     {% if time.id == cal.id %}
-                        <h5> FREEEEEE TIMESSSSSS </h5>
+                        <h5> FREE TIMES </h5>
                         {% for event in  time.free_times %}
-                            {{ event.start }}
+			<div class="row">
+                            BEGINS: {{ event.start | fmtdate}} {{ event.start | fmttime }} ENDS: {{event.end | fmtdate}} {{event.end | fmttime}}
+			</div>
                         {% endfor %}
                     {% endif %}
                 {% endfor %}
