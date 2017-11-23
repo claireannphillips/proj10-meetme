@@ -1,6 +1,7 @@
 # proj7-Gcal and proj8-freetimes
 Snarf appointment data from a selection of a user's Google calendars 
-# Author: Claire Phillips with help from Miguel and John
+# Author: 
+Claire Phillips with help from Miguel and John
 
 
 ## What it does
