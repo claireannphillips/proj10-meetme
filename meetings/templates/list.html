@@ -1,0 +1,109 @@
+<!DOCTYPE HTML>
+<html lang="en"> <head>
+<title>Appointments</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"/>
+     
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"/>
+    
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+
+<!-- Ideally the rest of our javascript dependencies would be
+     bundled and minified with 'browserify', but I've found that
+     it difficult to handle browserify dependencies for class
+     projects.  So, we'll pick up moment and a date range picker
+     from CDNs instead.
+-->
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
+<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
+</head>
+<body>
+
+<div class="container">
+
+<h2>Google Calendar Busy Times</h2>
+<br>
+<h4>Choose from the lists of possible meeting times</h4>
+
+<!--
+  -- If there are any warnings or other messages from a prior action,
+  -- they appear above the rest of the content, just until the next
+  -- action.
+  -->
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+
+    <!--
+    Show the calendar list (if we have it).  This will need to be turned into
+    a form from which calendars can be picked. Up to three entries are
+    shown in each row (but the order is across then down; I would
+    prefer down then across).
+    -->
+<br>
+
+{% if g.calendars is defined  %}
+
+  <form method="POST" action="/list_events" id="list_events" name="list_events">
+   <fieldset>
+   <legend> Events per Calendar </legend>
+      {% for cal in g.calendars %}
+        <div class="col-md-4">
+        {% if loop.index is divisibleby 1 %}
+          <div class="row">
+            <label for="{{ cal.summary }}">{{ cal.summary }} </label>   
+          </div>
+          {% if g.events is defined %}
+  		      {% for event in g.events %}
+  			       {% if event.id == cal.id %}
+  			         <h5> BUSY TIMES </h5>
+  				          {% for event in event.events %}
+                      {% if loop.index is divisibleby 1 %}
+                        <div class="row">
+  					             EVENT : {{ event.sum }} BEGINS :{{event.start | fmtdate}} {{event.start | fmttime}} ENDS :{{event.end | fmtdate}} {{event.end | fmttime}}
+  				              </div>
+  				            {% endif %}
+  				          {% endfor %}
+  		         {% endif %}
+  		      {% endfor %}
+         {% endif %}
+         </div>
+          <!-- New Stuff -->
+          {% if g.free is defined %}
+            {% for time in g.free %}
+              {% if time.id == cal.id %}
+                <h5> FREE TIMES </h5>
+                  {% for event in  time.free_times %}
+  		             <div class="row">
+                     <input type="checkbox" name="interest" value="{{ event }}" />
+                      BEGINS: {{ event.start | fmtdate}} {{ event.start | fmttime }} ENDS: {{event.end | fmtdate}} {{event.end | fmttime}}
+  			           </div>
+                  {% endfor %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+  <input type="submit" value="submit"/>
+  </fieldset>
+  </form>
+{% endif %}
+
