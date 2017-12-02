@@ -1,0 +1,63 @@
+<!DOCTYPE HTML>
+<html lang="en"> <head>
+<title>MeetMe</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"/>
+     
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"/>
+    
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+
+<!-- Ideally the rest of our javascript dependencies would be
+     bundled and minified with 'browserify', but I've found that
+     it difficult to handle browserify dependencies for class
+     projects.  So, we'll pick up moment and a date range picker
+     from CDNs instead.
+-->
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
+<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
+</head>
+<body>
+
+<div class="container">
+
+<h2>Meeting Created</h2>
+<h3>Selected Your Meeting Times </h3>
+
+{% for time in session.meet.times %}
+<p> {{time.name}}
+BEGINS: {{time.start | fmtdate}} {{time.start | fmttime}}
+ENDS: {{time.end | fmtdate}} {{time.end | fmttime}}  
+</p>
+{% endfor %}
+
+
+<br>
+
+<div class="row">
+  <h4>Link to share for other people in the meeting!</h4>
+</div>
+
+<p><a href="{{session.user_link}}" target="_blank">{{session.user_link}}</a></p>
+
+<div class="row">
+  <h4>This is your link for the final step of your meeting! </h4>
+  <p><a href="{{session.admin_link}}" target="_blank">{{session.admin_link}}</a></p>
+
+</div>
+
+
+</div>
+</body>
+</html>
+

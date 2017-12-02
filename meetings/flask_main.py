@@ -66,7 +66,7 @@ print("Using URL '{}'".format(MONGO_CLIENT_URL))
 try:
   dbclient = MongoClient(MONGO_CLIENT_URL)  # mongo connection string
   db = getattr(dbclient, CONFIG.DB)
-  collection = db.dated
+  collection = db.meetings
 
 except:
   print("Failure opening database.  Is Mongo running? Correct password?")
@@ -87,6 +87,127 @@ def index():
     init_session_values()
   return render_template('index.html')
 
+
+
+
+@app.route("/createmeeting", methods = ["post"])
+def createmeeting():
+  meeting_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+  arranger_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+  flask.session['meet'] = {}
+
+  times = request.form.getlist('interest')
+  flask.session['meet']['id'] = meeting_id
+  flask.session['meet']['code'] = arranger_code
+  flask.session['meet']['final'] = False
+  flask.session['meet']['s_range_date'] = flask.session['begin_date']
+  flask.session['meet']['s_range_time'] = flask.session['start_clock']
+  flask.session['meet']['e_range_date'] = flask.session['end_date']
+  flask.session['meet']['e_range_time'] = flask.session['end_clock']
+  flask.session['meet']['times'] = [] 
+  for i in range(len(times)):
+    time = times[i]
+    start = time[11:36]
+    app.logger.debug("TIME {} START {}".format(time[47:72], start))
+    end = time[47:72]
+    flask.session['meet']['times'].append({
+              'name': str(i),
+              'start': start,
+              'end': end,
+              'responses': []
+      })
+
+  meet = {'meeting': flask.session['meet']}
+  collection.insert(meet)
+  return flask.redirect(flask.url_for('meeting', meeting_id=meeting_id, arranger_code=arranger_code))
+
+@app.route("/meeting/<string:meeting_id>/<string:arranger_code>")
+def meeting(meeting_id, arranger_code):
+  flask.session['id'] = meeting_id
+  flask.session['code'] = arranger_code
+  flask.session['user_link'] = flask.url_for('user_view', meeting_id=flask.session['id'])
+  flask.session['admin_link'] = flask.url_for("admin_view", meeting_id=flask.session['id'], arranger_code=flask.session['code'])
+  return render_template('meeting.html')
+
+@app.route("/user_view/<string:meeting_id>")
+def user_view(meeting_id):
+  flask.session['times'] = []
+  for meeting in collection.find():
+    if meeting['meeting']['id'] == meeting_id:
+      if meeting['meeting']['final'] != False:
+        return flask.redirect(flask.url_for('final', meeting_id=meeting_id))
+      for time in meeting['meeting']['times']:
+        flask.session['times'].append({
+          "start":time['start'],
+          "end":time['end'],
+          "responses":time['responses']
+          })
+        flask.session['id'] = meeting['meeting']['id']
+        flask.session['begin_date'] = meeting['meeting']['s_range_date']
+        flask.session['begin_time'] = meeting['meeting']['s_range_time']
+        flask.session['end_date'] = meeting['meeting']['e_range_date']
+        flask.session['end_time'] = meeting['meeting']['e_range_time']
+        return render_template('user_view.html')
+  return render_template('incorrectid.html')
+
+@app.route("/admin_view/<string:meeting_id>/<string:arranger_code>")
+def admin_view(meeting_id, arranger_code):
+  flask.session['id'] = meeting_id
+  flask.session['code'] = arranger_code
+  flask.session['times'] = []
+  for meeting in collection.find():
+    if meeting['meeting']['id'] == meeting_id:
+      if meeting['meeting']['final'] != False:
+        return flask.redirect(flask.url_for('final', meeting_id=meeting_id))
+      if meeting['meeting']['code'] == arranger_code:
+        for time in meeting['meeting']['times']:
+          flask.session['times'].append({
+            "start":time['start'],
+            "end":time['end'],
+            "responses":time['responses']
+            })
+        return render_template('admin_view.html')
+  return render_template('incorrectid.html')
+
+@app.route("/update", methods=["post"])
+def update():
+  selection = flask.request.form.getlist('times')
+  name = flask.request.form.get('name')
+  for meeting in collection.find():
+    if meeting['meeting']['id'] == flask.session['id']:
+      for time in selection:
+        for names in meeting['meeting']['times']:
+          if time == names['name']:
+            update = 'meeting.times.'+time+'.responses'
+            collection.update_one(
+              {"meeting.id":flask.session['id']},
+              {'$push': {update: name}}
+              )
+  return render_template('done.html')
+              
+@app.route("/complete", methods=["post"])
+def complete():
+  final_time = flask.request.form.get("times")
+  flask.session['final_time'] = final_time
+  meeting_id = flask.session['id']
+  collection.update_one(
+    {"meeting.id": meeting_id},
+    {"$set": {"meeting.final": final_time}}
+    )
+  return flask.redirect(flask.url_for('final', meeting_id=meeting_id))
+
+@app.route("/final/<string:meeting_id>")
+def final(meeting_id):
+  flask.session['id'] = meeting_id
+  for meeting in collection.find():
+    if meeting['meeting']['id'] == meeting_id:
+      flask.session['final_time'] = meeting['meeting']['final']
+      return render_template('final.html')
+  return render_template('incorrectid.html')
+  
+
+
 @app.route("/choose")
 def choose():
     ## We'll need authorization to list calendars 
@@ -104,6 +225,23 @@ def choose():
     flask.g.calendars = list_calendars(gcal_service)
     #list_events(gcal_service, flask.g.calendars)
     return render_template('index.html')
+
+@app.route("/userchoose")
+def userchoose():
+    ## We'll need authorization to list calendars 
+    ## I wanted to put what follows into a function, but had
+    ## to pull it back here because the redirect has to be a
+    ## 'return' 
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+
+    gcal_service = get_gcal_service(credentials)
+    app.logger.debug("Returned from get_gcal_service")
+    flask.g.calendars = list_calendars(gcal_service)
+    return render_template('user_view.html')
 
 @app.route("/choose2")
 def choose2():
@@ -125,6 +263,27 @@ def choose2():
     flask.g.free = flask.session['free']
     
     return render_template('list.html')
+
+@app.route("/userchoose2")
+def userchoose2():
+    ## We'll need authorization to list calendars 
+    ## I wanted to put what follows into a function, but had
+    ## to pull it back here because the redirect has to be a
+    ## 'return' 
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+
+    gcal_service = get_gcal_service(credentials)
+    app.logger.debug("Returned from get_gcal_service")
+    flask.g.calendars = list_calendars(gcal_service)
+    flask.g.events = list_events(gcal_service, flask.g.calendars)
+    
+    flask.g.free = flask.session['free']
+    
+    return render_template('user_list.html')
 
 ####
 #
@@ -288,6 +447,12 @@ def setrange():
       flask.session['begin_date'], flask.session['end_date']))
     return flask.redirect(flask.url_for("choose"))
 
+@app.route("/usersetrange", methods=["post"])
+def usersetrange():
+  return flask.redirect(flask.url_for('userchoose'))
+
+
+
 ####
 #
 #   Initialize session variables 
@@ -408,6 +573,13 @@ def checking():
     app.logger.debug('CHECKED BOXES: {}'.format(interest)) #shows list of calendars clicked
     return flask.redirect(flask.url_for("choose2"))
 
+
+@app.route('/userlist_events', methods=['GET','POST'])
+def userchecking():
+    interest = flask.request.form.getlist("interest")
+    flask.session["cal_ids"] = interest
+    app.logger.debug('CHECKED BOXES: {}'.format(interest)) #shows list of calendars clicked
+    return flask.redirect(flask.url_for("userchoose2"))
 
     
 
