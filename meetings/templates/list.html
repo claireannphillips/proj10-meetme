@@ -33,7 +33,6 @@
 
 <h2>Google Calendar Busy Times</h2>
 <br>
-<h4>Choose from the lists of possible meeting times</h4>
 
 <!--
   -- If there are any warnings or other messages from a prior action,
@@ -51,6 +50,63 @@
   {% endif %}
 {% endwith %}
 
+<h4>Date and Time range</h4>
+
+
+<form action="/setrange" method="post">
+  Start time:
+  <input type="time" name="start_clock" value="00:00:00"> 
+
+</select>
+
+  End time:
+  <input type="time" name="end_clock" value="00:00:00">
+
+
+
+  <input type="text" name="daterange" size="12"
+    {% if session.daterange is defined %}
+         value="{{session.daterange}}"
+    {% endif %}
+     class="pull-down"
+     style="background: #fff; cursor: pointer; padding: 5px 10px;"
+     border: 1px solid #ccc; width: 12em" >
+  <script type="text/javascript">
+  $(function() {
+  $('input[name="daterange"]').daterangepicker(
+    {    ranges: {
+     
+           'Today': [moment(), moment().add(1, 'days')],
+           'Tomorrow':[moment().add(1, 'days'),
+                       moment().add(1, 'days')],
+           'This week':[moment(), moment().endOf('week').add(1, 'days')],
+           'Next week':[moment().add(7, 'days').startOf('week'),
+                        moment().add(7, 'days').endOf('week').add(1, 'days')],
+           'This month':[moment(), moment().endOf('month').add(1, 'days')],
+           'Within two weeks':[moment(),moment().add(16, 'days')]
+        }}
+       );
+    });
+  </script>
+
+  <div class="row">
+    <div class="col-sm-8">
+      <label for="duration">Duration of meeting:</label>
+      <select name="duration">
+        <option value="30">30 min</option>
+        <option value="100">1 hr</option>
+        <option value="130">1 hr 30 min</option>
+        <option value="200">2 hr</option>
+        <option value="230">2 hr 30 min</option>
+        <option value="300">3 hr</option>
+        <option value="330">3 hr 30 min</option>
+        <option value="400">4 hr</option>
+      </select>
+    </div>
+  </div>
+
+<input type="submit" value="Get Busy Times" />
+</form>
 
     <!--
     Show the calendar list (if we have it).  This will need to be turned into
@@ -62,9 +118,8 @@
 
 {% if g.calendars is defined  %}
 
-  <form method="POST" action="/list_events" id="list_events" name="list_events">
    <fieldset>
-   <legend> Events per Calendar </legend>
+   <legend> Choose Calendars </legend>
       {% for cal in g.calendars %}
         <div class="col-md-4">
         {% if loop.index is divisibleby 1 %}
@@ -72,38 +127,39 @@
             <label for="{{ cal.summary }}">{{ cal.summary }} </label>   
           </div>
           {% if g.events is defined %}
-  		      {% for event in g.events %}
-  			       {% if event.id == cal.id %}
-  			         <h5> BUSY TIMES </h5>
-  				          {% for event in event.events %}
+            {% for event in g.events %}
+               {% if event.id == cal.id %}
+                 <h5> BUSY TIMES </h5>
+                    {% for event in event.events %}
                       {% if loop.index is divisibleby 1 %}
                         <div class="row">
-  					             EVENT : {{ event.sum }} BEGINS :{{event.start | fmtdate}} {{event.start | fmttime}} ENDS :{{event.end | fmtdate}} {{event.end | fmttime}}
-  				              </div>
-  				            {% endif %}
-  				          {% endfor %}
-  		         {% endif %}
-  		      {% endfor %}
+                         EVENT : {{ event.sum }} BEGINS :{{event.start | fmtdate}} {{event.start | fmttime}} ENDS :{{event.end | fmtdate}} {{event.end | fmttime}}
+                        </div>
+                      {% endif %}
+                    {% endfor %}
+               {% endif %}
+            {% endfor %}
          {% endif %}
          </div>
           <!-- New Stuff -->
+          <form action ="/createmeeting" method = "post">
           {% if g.free is defined %}
             {% for time in g.free %}
               {% if time.id == cal.id %}
                 <h5> FREE TIMES </h5>
                   {% for event in  time.free_times %}
-  		             <div class="row">
+                    <div class="row">
                      <input type="checkbox" name="interest" value="{{ event }}" />
                       BEGINS: {{ event.start | fmtdate}} {{ event.start | fmttime }} ENDS: {{event.end | fmtdate}} {{event.end | fmttime}}
-  			           </div>
+                   </div>
                   {% endfor %}
               {% endif %}
             {% endfor %}
           {% endif %}
         {% endif %}
+        </form>
       {% endfor %}
-  <input type="submit" value="submit"/>
+      <button type ="submit" name ="meetbutton">Create Meeting</button>
   </fieldset>
-  </form>
 {% endif %}
 

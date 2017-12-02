@@ -3,6 +3,12 @@ from flask import render_template
 from flask import request
 from flask import url_for
 import uuid
+import pymongo
+from pymongo import MongoClient
+import ast
+import random
+import string
+import sys
 
 import json
 import logging
@@ -32,6 +38,8 @@ if __name__ == "__main__":
 else:
     CONFIG = config.configuration(proxied=True)
 
+
+
 app = flask.Flask(__name__)
 app.debug=CONFIG.DEBUG
 app.logger.setLevel(logging.DEBUG)
@@ -40,6 +48,29 @@ app.secret_key=CONFIG.SECRET_KEY
 SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = CONFIG.GOOGLE_KEY_FILE  ## You'll need this
 APPLICATION_NAME = 'MeetMe class project'
+
+MONGO_CLIENT_URL = "mongodb://{}:{}@{}:{}/{}".format(
+    CONFIG.DB_USER,
+    CONFIG.DB_USER_PW,
+    CONFIG.DB_HOST,
+    CONFIG.DB_PORT,
+    CONFIG.DB)
+
+
+print("Using URL '{}'".format(MONGO_CLIENT_URL))    
+
+####
+# Database connection per server process
+###
+
+try:
+  dbclient = MongoClient(MONGO_CLIENT_URL)  # mongo connection string
+  db = getattr(dbclient, CONFIG.DB)
+  collection = db.dated
+
+except:
+  print("Failure opening database.  Is Mongo running? Correct password?")
+  sys.exit(1)
 
 #############################
 #
@@ -51,6 +82,7 @@ APPLICATION_NAME = 'MeetMe class project'
 @app.route("/index")
 def index():
   app.logger.debug("Entering index")
+  flask.g.url = MONGO_CLIENT_URL
   if 'begin_date' not in flask.session:
     init_session_values()
   return render_template('index.html')
@@ -92,7 +124,7 @@ def choose2():
     
     flask.g.free = flask.session['free']
     
-    return render_template('index.html')
+    return render_template('list.html')
 
 ####
 #
@@ -406,6 +438,7 @@ def list_events(service, calendars):
   #app.logger.debug(enddate)
   
   calendar_result = []
+  finalfreelist = []
   for id in selected:
       
       events = service.events().list(calendarId=id, singleEvents=True, orderBy='startTime' ).execute()["items"]
@@ -421,10 +454,6 @@ def list_events(service, calendars):
       
       # Get free times
       freetimeslist = []
-      finalfreelist = []
-      
-      if listevents == []:
-        freetimes = freeblocks
       
       for block in freeblocks:
           busyevents = check(events, block['start'], block['end'])
