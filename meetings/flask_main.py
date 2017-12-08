@@ -189,6 +189,8 @@ def update():
 @app.route("/complete", methods=["post"])
 def complete():
   final_time = flask.request.form.get("times")
+  if final_time == None:
+    return flask.redirect(url_for('admin_view', meeting_id=flask.session['id'], arranger_code=flask.session['code']))
   flask.session['final_time'] = final_time
   meeting_id = flask.session['id']
   collection.update_one(
